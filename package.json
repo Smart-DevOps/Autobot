@@ -1,0 +1,22 @@
+{
+  "name": "test",
+  "version": "0.0.1",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "test": "npm run istanbul && npm run jshint",
+    "istanbul": "./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha -- -u bdd -R spec",
+    "jshint": "./node_modules/.bin/jshint --reporter ./node_modules/jshint-stylish/stylish.js ./src/*.js > styleCheck.txt ; true"
+  },
+  "author": "Mark Luo",
+  "license": "ISC",
+  "devDependencies": {
+    "chai": "*",
+    "istanbul": "*",
+    "mocha": "*",
+    "esprima": "^1.2.3",
+    "jshint": "^2.6.3",
+    "jshint-stylish": "^1.0.1"
+  }
+
+}
