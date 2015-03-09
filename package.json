@@ -17,7 +17,6 @@
     "mocha": "*",
     "esprima": "^1.2.3",
     "jshint": "^2.6.3",
-    "jshint-stylish": "^1.0.1",
     "mocha-tap-reporter": "*",
     "underscore": "*"
   }
