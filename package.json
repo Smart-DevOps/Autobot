@@ -4,9 +4,10 @@
   "description": "",
   "main": "main.js",
   "scripts": {
-    "test": "npm run jshint && npm run istanbul",
-    "istanbul": "./node_modules/.bin/istanbul cover --report cobertura ./node_modules/.bin/_mocha -- -u bdd -R spec",
-    "jshint": "./node_modules/.bin/jshint ./src/*.js --checkstyle-reporter > reports/jshint.xml ; true"
+    "test": "npm run findbugs && npm run mocha && npm run coverage",
+    "mocha": "./node_modules/.bin/mocha -u bdd -R spec --reporter mocha-tap-reporter > reports/test_results.tap",
+    "coverage": "./node_modules/.bin/istanbul cover --report cobertura ./node_modules/.bin/_mocha -- -u bdd -R spec",
+    "findbugs": "./node_modules/.bin/jshint ./src/*.js --checkstyle-reporter > reports/jshint.xml ; true"
   },
   "author": "Mark Luo",
   "license": "ISC",
@@ -17,6 +18,7 @@
     "esprima": "^1.2.3",
     "jshint": "^2.6.3",
     "jshint-stylish": "^1.0.1",
+    "mocha-tap-reporter": "*",
     "underscore": "*"
   }
 
