@@ -5,8 +5,7 @@
   "main": "main.js",
   "scripts": {
     "test": "npm run jshint && npm run istanbul",
-    "istanbul": "./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha -- -u bdd -R spec",
-    "cobertura": "./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha -- -u bdd -R spec --reporter mocha-cobertura-reporter > ./reports/cobertura.xml",
+    "istanbul": "./node_modules/.bin/istanbul cover --report cobertura ./node_modules/.bin/_mocha -- -u bdd -R spec",
     "jshint": "./node_modules/.bin/jshint ./src/*.js --checkstyle-reporter > reports/jshint.xml ; true"
   },
   "author": "Mark Luo",
@@ -18,7 +17,6 @@
     "esprima": "^1.2.3",
     "jshint": "^2.6.3",
     "jshint-stylish": "^1.0.1",
-    "mocha-cobertura-reporter": "*",
     "underscore": "*"
   }
 
