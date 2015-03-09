@@ -1,10 +1,12 @@
 var esprima = require("esprima");
 var options = {tokens:true, tolerant: true, loc: true, range: true };
-var faker = require("faker");
+//var faker = require("faker");
 var fs = require("fs");
-faker.locale = "en";
-var mock = require('mock-fs');
+//faker.locale = "en";
+//var mock = require('mock-fs');
 var _ = require('underscore');
+
+var object; //main test object
 
 function main()
 {
@@ -12,22 +14,40 @@ function main()
 
 	if( args.length == 0 )
 	{
-		args = ["subject.js"];
+		args = ["backtrack.js"];
 	}
 	var filePath = args[0];
 
 	constraints(filePath);
 
-	generateTestCases()
+	generateTestCases(filePath)
 
 }
 
+//check whether string is pure number!
+function isInt(value) {
+	var er = /^-?[0-9]+$/;
+	return er.test(value);
+}
 
-function fakeDemo()
+// internal fuzzer
+// minimun value is 0
+function fuzzer(value)
 {
-	console.log( faker.phone.phoneNumber() );
-	console.log( faker.phone.phoneNumberFormat() );
-	console.log( faker.phone.phoneFormats() );
+	var random = Math.random();
+
+	if (random <= 0.333) //30% -1
+	{
+		value--;
+	}
+	else if (random <= 0.666) //30% +1
+	{
+		value++;
+	}
+	// 30% unchanged
+
+	return (value < 0 ? 0 : value);
+
 }
 
 var functionConstraints =
@@ -56,11 +76,13 @@ var mockFileLibrary =
 	}
 };
 
-function generateTestCases()
+function generateTestCases(filePath)
 {
 	console.log("---- Generating test cases... ----");
 
-	var content = "var subject = require('./subject.js')\nvar mock = require('mock-fs');\n";
+	var content = "var backtrack = require('./../src/"+filePath+"');\n";
+	content += "var subject = new "+object+"();\n";
+
 	for ( var funcName in functionConstraints )
 	{
 		var params = {};
@@ -70,16 +92,26 @@ function generateTestCases()
 		{
 			var paramName = functionConstraints[funcName].params[i];
 			//params[paramName] = '\'' + faker.phone.phoneNumber()+'\'';
-			params[paramName] = '\'\''; //will print ''
+			//params[paramName] = '\'\''; //will print ''
+
+			if (paramName == 'x' || paramName == 'y' || paramName == 'node')
+			{
+				params[paramName] = paramName;
+			}
+			else
+			{
+				params[paramName] = '\'\'';
+			}
 		}
 
-		console.log(params );
+		console.log(funcName+": ");
+		console.log(params);
 
 		// update parameter values based on known constraints.
 		var constraints = functionConstraints[funcName].constraints;
 		// Handle global constraints...
-		var fileWithContent = _.some(constraints, {mocking: 'fileWithContent' });
-		var pathExists      = _.some(constraints, {mocking: 'fileExists' });
+		//var fileWithContent = _.some(constraints, {mocking: 'fileWithContent' });
+		//var pathExists      = _.some(constraints, {mocking: 'fileExists' });
 
 
 		//the number of constraints in each function "funcName"
@@ -87,10 +119,10 @@ function generateTestCases()
 		{
 			
 			var constraint = constraints[c];
-			if( params.hasOwnProperty( constraint.ident ) ) //constraint identifier
+			if( params.hasOwnProperty( constraint.ident ) && isInt(constraint.value)) //constraint identifier & is number 
 			{
 				params[constraint.ident] = constraint.value;
-				console.log(funcName +" >>> constraint.ident:"+ constraint.ident + " constraint.value:"+constraint.value);
+				console.log(" >>> constraint.ident:"+ constraint.ident + " constraint.value:"+constraint.value);
 			}
 		}
 
@@ -99,24 +131,12 @@ function generateTestCases()
 
 		console.log("arguments: "+args);
 		
-		if( pathExists || fileWithContent )
-		{
-			var fileHasContent = 1; //file may be empty
-
-			content += generateMockFsTestCases(pathExists,fileWithContent,funcName, args, fileHasContent);
-			// Bonus...generate constraint variations test cases....
-			content += generateMockFsTestCases(!pathExists,!fileWithContent,funcName, args, fileHasContent);
-			content += generateMockFsTestCases(pathExists,!fileWithContent,funcName, args, fileHasContent);
-			content += generateMockFsTestCases(!pathExists,fileWithContent,funcName, args, fileHasContent);
-
-			// file may be empty
-			content += generateMockFsTestCases(pathExists,fileWithContent,funcName, args, !fileHasContent);
-
-		}
-		// Test BlackListNumber function
-		else if (funcName == "blackListNumber")
+	
+		// Search function
+		if (funcName == "getDirection")
 		{
 
+			console.log("Found function "+funcName)
 			// Emit simple test case.
 			content += "subject.{0}({1});\n".format(funcName, args );
 
@@ -132,25 +152,51 @@ function generateTestCases()
 
 					console.log(funcName +" >>> constraint.ident:"+ constraint.ident + " constraint.value:"+constraint.value);
 
-					var fakeNumber = faker.phone.phoneNumber('#######');
-
-					fakeNumber = constraint.value.substring(0,4) + fakeNumber.substring(5,-1) + "\"";
+					
 
 					content += "subject.{0}({1});\n".format(funcName, fakeNumber);
 				}	
 			}
 		}
+		else if (params.hasOwnProperty('x') != -1 || params.hasOwnProperty('y') != -1) //if function contains x or y aka vector
+		{
+			//fuzzer!
+			var x = 10;
+			var y = 10;
+			var paramsCheck = args.split(",");
+			for (var i =0; i < paramsCheck.length; i++)
+			{
+				var tmp = new Array(paramsCheck.length);
+				//prepare new array each time
+				for (var j=0; j < paramsCheck.length; j++)
+				{
+					var chk = paramsCheck[j];
+					if (chk == 'x')
+					{
+						tmp[j] = (x = fuzzer(x));
+					}
+					else if (chk == 'y')
+					{
+						tmp[j] = (y = fuzzer(y));
+					}
+					else if (chk == 'node')
+					{
+						tmp[j] = "subject.tree";
+					}
+					else
+					{
+						tmp[j] = '\'\'';
+					}
+				}
 
+				content += "subject.{0}({1});\n".format(funcName, tmp.join(","));
+
+			}
+		}
 		else //the rest of functions
 		{
 			// Emit simple test case.
 			content += "subject.{0}({1});\n".format(funcName, args );
-
-			//check whether string is pure number!
-			function isInt(value) {
-				var er = /^-?[0-9]+$/;
-				return er.test(value);
-			}
 
 			//create combination of args!
 			var paramsCheck = args.split(",");
@@ -185,57 +231,45 @@ function generateTestCases()
 	}
 
 
-	fs.writeFileSync('test.js', content, "utf8");
+	fs.writeFileSync('./../test/test.js', content, "utf8");
 
 }
 
-function generateMockFsTestCases (pathExists,fileWithContent,funcName,args, fileHasContent) 
-{
-	var testCase = "";
-	// Insert mock data based on constraints.
-	var mergedFS = {};
-	if( pathExists )
-	{
-		for (var attrname in mockFileLibrary.pathExists) { mergedFS[attrname] = mockFileLibrary.pathExists[attrname]; }
-	}
-
-	if( fileWithContent )
-	{
-		if (fileHasContent)
-		{
-			for (var attrname in mockFileLibrary.fileWithContent) { mergedFS[attrname] = mockFileLibrary.fileWithContent[attrname]; }
-		}
-		else
-		{
-			for (var attrname in mockFileLibrary.fileWithoutContent) { mergedFS[attrname] = mockFileLibrary.fileWithoutContent[attrname]; }
-		}
-	}
-	
-
-	testCase += 
-	"mock(" +
-		JSON.stringify(mergedFS)
-		+
-	");\n";
-
-	testCase += "\tsubject.{0}({1});\n".format(funcName, args );
-	testCase+="mock.restore();\n";
-	return testCase;
-}
 
 function constraints(filePath)
 {
    var buf = fs.readFileSync(filePath, "utf8");
 	var result = esprima.parse(buf, options);
 
+	//
+	// Search single root function expression first
+	//
+	var key;
+	var node;
+	for (key in result.body) {
+		node = result.body[key];
+		if (node.type === 'ExpressionStatement' && node.expression.type === "AssignmentExpression" 
+			&& node.expression.right.type === 'FunctionExpression')
+		{
+			object = node.expression.left.object.name + "." + node.expression.left.property.name;
+			console.log("The root function is "+object);
+		}
+	}
+
+
 	traverse(result, function (node) 
 	{
-		if (node.type === 'FunctionDeclaration') 
+
+		//
+		// Search public accessible functions inside the objects, this.funcName = function(params) {}
+		//
+		if (node.type === 'ExpressionStatement' && node.expression.type === "AssignmentExpression" 
+			&& node.expression.right.type === 'FunctionExpression' && node.expression.left.object.type === "ThisExpression" ) 
 		{
 			var funcName = functionName(node);
 			console.log("Line : {0} Function: {1}".format(node.loc.start.line, funcName ));
 
-			var params = node.params.map(function(p) {return p.name});
+			var params = node.expression.right.params.map(function(p) {return p.name});
 
 			functionConstraints[funcName] = {constraints:[], params: params};
 
@@ -245,7 +279,7 @@ function constraints(filePath)
 				if( child.type === 'BinaryExpression' && child.operator == "==")
 				{
 					if( child.left.type == 'Identifier' && params.indexOf( child.left.name ) > -1) //process ident found in params
-					{console.log("found operator.............. == and left name:" + child.left.name);
+					{console.log(">> found operator.............. == and left identifier:" + child.left.name);
 						// get expression from original source code:
 						//var expression = buf.substring(child.range[0], child.range[1]);
 						var rightHand = buf.substring(child.right.range[0], child.right.range[1])
@@ -260,7 +294,7 @@ function constraints(filePath)
 					// Special rule to find BlackListNumber
 					//
 					else if (child.left.type == 'Identifier' && child.left.name == "area") //process ident called "area"
-					{console.log("found keyword.............. phone number:" + child.left.name);
+					{console.log(">> found keyword.............. phone number:" + child.left.name);
 						//
 						//
 						var rightHand = buf.substring(child.right.range[0], child.right.range[1])
@@ -275,7 +309,7 @@ function constraints(filePath)
 				if( child.type === 'BinaryExpression' && child.operator == "<")
 				{
 					if( child.left.type == 'Identifier' && params.indexOf( child.left.name ) > -1) //process ident found in params
-					{console.log("found operator.............. < and left name:" + child.left.name);
+					{console.log(">> found operator.............. < and left identifier:" + child.left.name);
 						// get expression from original source code:
 						//var expression = buf.substring(child.range[0], child.range[1]);
 						var rightHand = buf.substring(child.right.range[0], child.right.range[1])
@@ -290,7 +324,7 @@ function constraints(filePath)
 				if( child.type === 'BinaryExpression' && child.operator == ">")
 				{
 					if( child.left.type == 'Identifier' && params.indexOf( child.left.name ) > -1) //process ident found in params
-					{console.log("found operator.............. > and left name:" + child.left.name);
+					{console.log(">> found operator.............. > and left identifier:" + child.left.name);
 						// get expression from original source code:
 						//var expression = buf.substring(child.range[0], child.range[1]);
 						var rightHand = buf.substring(child.right.range[0], child.right.range[1])
@@ -310,7 +344,7 @@ function constraints(filePath)
 					if (child.left.type == "UnaryExpression") //determine if left side is Unary Expression
 					{
 						if (child.left.argument.type == "Identifier" && params.indexOf( child.left.argument.name) > -1)
-						{console.log("found operator.............. || and left expression name:" + child.left.argument.name);
+						{console.log(">> found operator.............. || and left expression identifier:" + child.left.argument.name);
 							//
 							//
 							functionConstraints[funcName].constraints.push( 
@@ -328,7 +362,7 @@ function constraints(filePath)
 						if (child.right.argument.type == "MemberExpression" && child.right.argument.object.type == "Identifier")
 						{	
 							if (params.indexOf( child.right.argument.object.name) > -1)
-							{console.log("found member expression object name:" + child.right.argument.object.name);
+							{console.log(">> found member expression object name:" + child.right.argument.object.name);
 							//
 							//
 								functionConstraints[funcName].constraints.push( 
@@ -381,7 +415,7 @@ function constraints(filePath)
 
 			});
 
-			console.log( functionConstraints[funcName]);
+			console.log(functionConstraints[funcName]);
 
 		}
 	});
@@ -421,9 +455,9 @@ function traverseWithCancel(object, visitor)
 
 function functionName( node )
 {
-	if( node.id )
+	if( node.expression.left.property.type == "Identifier")
 	{
-		return node.id.name;
+		return node.expression.left.property.name;
 	}
 	return "";
 }
