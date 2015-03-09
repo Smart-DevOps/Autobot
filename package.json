@@ -7,7 +7,7 @@
     "test": "npm run jshint && npm run istanbul",
     "istanbul": "./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha -- -u bdd -R spec",
     "cobertura": "./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha -- -u bdd -R spec --reporter mocha-cobertura-reporter > ./reports/cobertura.xml",
-    "jshint": "./node_modules/.bin/jshint ./src/*.js --jslint-reporter > reports/jslint.xml ; true"
+    "jshint": "./node_modules/.bin/jshint ./src/*.js --checkstyle-reporter > reports/jshint.xml ; true"
   },
   "author": "Mark Luo",
   "license": "ISC",
